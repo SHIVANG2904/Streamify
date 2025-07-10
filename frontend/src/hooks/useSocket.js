@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 
-const SERVER = "http://localhost:3000"; // Replace if needed
+const SERVER = "https://streamify-b-bzkp.onrender.com/"; // Replace if needed
 
 export const useSocket = () => {
   const socketRef = useRef(null);

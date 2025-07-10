@@ -1,7 +1,7 @@
 // src/lib/chatSocket.js
 import { io } from "socket.io-client";
 
-const SOCKET_URL = "http://localhost:3000"; // Update if using deployed backend
+const SOCKET_URL = "https://streamify-b-bzkp.onrender.com/"; // Update if using deployed backend
 let socket = null;
 
 export const initSocket = () => {
