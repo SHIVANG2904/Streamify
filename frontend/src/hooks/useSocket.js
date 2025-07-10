@@ -3,7 +3,6 @@ import { io } from "socket.io-client";
 
 const SERVER = "http://localhost:3000"; // Replace if needed
 
-// 🚀 Only for video call signaling
 export const useSocket = () => {
   const socketRef = useRef(null);
   const [ready, setReady] = useState(false);
@@ -20,6 +19,5 @@ export const useSocket = () => {
     };
   }, []);
 
-  // Waiting until socket is connected
   return ready ? socketRef.current : null;
 };

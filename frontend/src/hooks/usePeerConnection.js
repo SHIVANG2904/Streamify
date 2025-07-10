@@ -17,7 +17,6 @@ export const usePeerConnection = (socket, roomId) => {
   };
 
   const createPeer = () => {
-    // Cleanup old peer if exists
     if (peerRef.current) {
       console.log("🧹 Closing old peer connection...");
       peerRef.current.close();
@@ -72,10 +71,18 @@ export const usePeerConnection = (socket, roomId) => {
       });
     } catch (error) {
       console.error("🚨 Error accessing local media:", error);
+      console.warn(
+        "⚠️ Proceeding without local media stream (dev/test only, no camera)"
+      );
+      createPeer(); // still create peer connection so signaling can work
     }
   };
 
   const createOffer = async () => {
+    if (!peerRef.current) {
+      console.error("🚨 Cannot create offer: peer connection not ready");
+      return;
+    }
     try {
       console.log("📡 Creating offer...");
       const offer = await peerRef.current.createOffer();
@@ -88,26 +95,32 @@ export const usePeerConnection = (socket, roomId) => {
   };
 
   const handleOffer = async ({ offer }) => {
-    try {
-      console.log("📥 Received offer");
-      createPeer();
+    console.log("📥 Received offer");
+    createPeer();
 
+    try {
       await peerRef.current.setRemoteDescription(
         new RTCSessionDescription(offer)
       );
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: true,
-      });
-
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = stream;
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: true,
+        });
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = stream;
+        }
+        stream.getTracks().forEach((track) => {
+          peerRef.current.addTrack(track, stream);
+        });
+      } catch (err) {
+        console.warn(
+          "⚠️ Could not get local stream in handleOffer (dev/test without camera):",
+          err
+        );
       }
-
-      stream.getTracks().forEach((track) => {
-        peerRef.current.addTrack(track, stream);
-      });
 
       const answer = await peerRef.current.createAnswer();
       await peerRef.current.setLocalDescription(answer);

@@ -12,39 +12,31 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const server = http.createServer(app);
 
+// ⚡ Setup socket.io server
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:5173",
+    origin: "http://localhost:5173",  // allow frontend
     methods: ["GET", "POST"],
     credentials: true,
   },
 });
 
-// Middleware
-app.use(
-  cors({
-    origin: "http://localhost:5173",
-    credentials: true,
-  })
-);
+// Middlewares
+app.use(cors({ origin: "http://localhost:5173", credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// DB connection
+// DB connection & models
 const { connectDB } = require("./lib/db.js");
 const Message = require("./models/message.js");
 
-// Routes
-const authRoutes = require("./routes/authRoutes.js");
-const userRoutes = require("./routes/userRoutes.js");
-const chatRoutes = require("./routes/chatRoutes.js");
+// API routes
+app.use("/api/auth", require("./routes/authRoutes.js"));
+app.use("/api/user", require("./routes/userRoutes.js"));
+app.use("/api/chat", require("./routes/chatRoutes.js"));
 
-app.use("/api/auth", authRoutes);
-app.use("/api/user", userRoutes);
-app.use("/api/chat", chatRoutes);
-
-// Serve frontend in development
+// Frontend serving (dev)
 if (process.env.NODE_ENV === "development") {
   app.use(express.static(path.join(__dirname, "../../frontend/dist")));
   app.get("*", (req, res) => {
@@ -52,64 +44,60 @@ if (process.env.NODE_ENV === "development") {
   });
 }
 
-// ✅ WebSocket logic
+// ✅ SOCKET.IO logic
 io.on("connection", (socket) => {
   console.log("🔌 WebSocket connected:", socket.id);
 
-  // 🔁 1-1 chat room (DB-based)
+  // 1️⃣ Join chat room (DB-backed chat)
   socket.on("join-room", (roomId) => {
     socket.join(roomId);
     console.log(`👥 ${socket.id} joined room ${roomId}`);
   });
 
-  socket.on(
-    "send-message",
-    async ({ text, sender, receiver, roomId, timestamp }) => {
-      if (!text || !sender || !receiver || !roomId) return;
-
-      try {
-        const newMessage = await Message.create({
-          text,
-          sender,
-          receiver,
-          roomId,
-          timestamp: timestamp || new Date(),
-        });
-
-        io.to(roomId).emit("receive-message", newMessage);
-      } catch (err) {
-        console.error("❌ Error saving message:", err);
-      }
+  // 2️⃣ Send chat message to room (saved to DB)
+  socket.on("send-message", async ({ text, sender, receiver, roomId, timestamp }) => {
+    if (!text || !sender || !receiver || !roomId) return;
+    try {
+      const newMsg = await Message.create({
+        text,
+        sender,
+        receiver,
+        roomId,
+        timestamp: timestamp || new Date(),
+      });
+      io.to(roomId).emit("receive-message", newMsg);
+    } catch (err) {
+      console.error("❌ Error saving message:", err);
     }
-  );
+  });
 
+  // 3️⃣ Typing indicators
   socket.on("typing", ({ roomId, userId }) => {
     socket.to(roomId).emit("typing", { userId });
   });
-
   socket.on("stopTyping", ({ roomId, userId }) => {
     socket.to(roomId).emit("stopTyping", { userId });
   });
 
-  // ✅ In-call video chat message (NOT saved to DB)
+  // 4️⃣ Video call in-room chat (NOT saved to DB)
   socket.on("chat-message", (msg, sender, sid) => {
-    console.log("💬 In-call chat-message received:", msg);
+    console.log("💬 In-call chat-message:", msg);
     socket.broadcast.emit("chat-message", msg, sender, sid);
   });
 
-  // ✅ WebRTC Signaling for Video Call
+  // 5️⃣ WebRTC signaling
   socket.on("offer", ({ offer, roomId }) => {
-    console.log("📨 Offer received:", offer);
+    console.log("📨 Offer received");
     socket.to(roomId).emit("offer", { offer });
   });
 
   socket.on("answer", ({ answer, roomId }) => {
-    console.log("📨 Answer received:", answer);
+    console.log("📨 Answer received");
     socket.to(roomId).emit("answer", { answer });
   });
 
   socket.on("ice-candidate", ({ candidate, roomId }) => {
-    console.log("📨 ICE candidate received:", candidate);
+    console.log("📨 ICE candidate received");
     socket.to(roomId).emit("ice-candidate", { candidate });
   });
 
