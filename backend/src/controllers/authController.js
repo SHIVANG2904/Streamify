@@ -43,7 +43,7 @@ module.exports.signup = async (req, res) => {
     res.cookie("token", token, {
       httpOnly: true,
       sameSite: "Strict",
-      secure: process.env.NODE_ENV === "development",
+      secure: process.env.NODE_ENV === "production",
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
@@ -95,7 +95,7 @@ module.exports.login = async (req, res) => {
     res.cookie("token", token, {
       httpOnly: true,
       sameSite: "Strict",
-      secure: process.env.NODE_ENV === "development",
+      secure: process.env.NODE_ENV === "production",
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
